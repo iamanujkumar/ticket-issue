@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 
 const POOL_SIZE = Number(process.env.DATABASE_POOL_SIZE ?? 10);
 
+// Prisma's 2 s default was too short for the first TLS connection to a sleeping Neon database.
 const TRANSACTION_OPTIONS = {
   maxWait: 5000,
   timeout: 10000,

@@ -15,6 +15,7 @@ export function rejectForeignOrigins(allowedOrigins = parseOriginList(process.en
   return (req, _res, next) => {
     const origin = req.headers.origin;
 
+    // Browsers always send Origin on cross-site writes; requests without it (curl, servers) are not CSRF.
     if (WRITE_METHODS.has(req.method) && origin !== undefined && !allowed.has(origin)) {
       throw new ForbiddenError({
         code: ERROR_CODES.CSRF_ORIGIN_MISMATCH,
@@ -26,6 +27,7 @@ export function rejectForeignOrigins(allowedOrigins = parseOriginList(process.en
   };
 }
 
+// Clients send "Content-Length: 0" on empty POSTs (logout, refresh); that is not a body.
 function hasBody(req) {
   return req.headers['transfer-encoding'] !== undefined || Number(req.headers['content-length']) > 0;
 }

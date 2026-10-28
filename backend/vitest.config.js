@@ -20,6 +20,7 @@ export default defineConfig({
           env: {
             ...quietLogs,
             ALLOWED_ORIGINS: 'http://localhost:5173',
+            JWT_ACCESS_SECRET: 'unit-test-secret-that-is-long-enough-123456',
           },
         },
       },

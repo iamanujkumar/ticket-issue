@@ -1,0 +1,77 @@
+enum BookStatus {
+  PUBLISHED
+  IN_PRODUCTION
+
+  @@map("book_status")
+}
+
+enum ProductionStage {
+  MANUSCRIPT_RECEIVED
+  EDITING
+  COVER_DESIGN
+  TYPESETTING
+  PROOFREADING
+  ISBN_ASSIGNMENT
+  PRINTING
+  DISTRIBUTION_SETUP
+
+  @@map("production_stage")
+}
+
+enum PrintPartner {
+  IN_HOUSE
+  REPRO_INDIA
+  EPITOME_BOOKS
+
+  @@map("print_partner")
+}
+
+enum Platform {
+  AMAZON_IN
+  FLIPKART
+  AMAZON_US
+  AMAZON_UK
+  BOOKLEAF_STORE
+
+  @@map("platform")
+}
+
+model Book {
+  id                  String           @id @default(uuid()) @db.Uuid
+  code                String           @unique @db.VarChar(16)
+  authorId            String           @map("author_id") @db.Uuid
+  title               String           @db.VarChar(300)
+  isbn                String?          @unique @db.VarChar(32)
+  genre               String           @db.VarChar(120)
+  status              BookStatus
+  productionStage     ProductionStage? @map("production_stage")
+  publicationDate     DateTime?        @map("publication_date") @db.Date
+  currency            String           @default("INR") @db.Char(3)
+  mrpMinor            Int?             @map("mrp_minor")
+  royaltyPerCopyMinor Int?             @map("royalty_per_copy_minor")
+  copiesSold          Int              @default(0) @map("copies_sold")
+  royaltyEarnedMinor  Int              @default(0) @map("royalty_earned_minor")
+  royaltyPaidMinor    Int              @default(0) @map("royalty_paid_minor")
+  royaltyPendingMinor Int              @default(0) @map("royalty_pending_minor")
+  lastPayoutDate      DateTime?        @map("last_payout_date") @db.Date
+  printPartner        PrintPartner?    @map("print_partner")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  author    Author         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  platforms BookPlatform[]
+
+  @@index([authorId])
+  @@map("books")
+}
+
+model BookPlatform {
+  bookId   String   @map("book_id") @db.Uuid
+  platform Platform
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, platform])
+  @@index([platform])
+  @@map("book_platforms")
+}

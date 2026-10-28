@@ -1,9 +1,11 @@
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
 import { createHealthRouter } from './core/health/health.routes.js';
 import { errorHandler, notFoundHandler } from './core/middlewares/error_handler.js';
 import { rejectForeignOrigins, requireJsonBody } from './core/middlewares/request_guards.js';
 import { requestLogger } from './core/middlewares/request_logger.js';
+import { authRouter } from './modules/auth_module/auth.routes.js';
 
 const JSON_BODY_LIMIT = '100kb';
 
@@ -13,6 +15,9 @@ function createApiRouter() {
   router.use(rejectForeignOrigins());
   router.use(requireJsonBody);
   router.use(express.json({ limit: JSON_BODY_LIMIT }));
+  router.use(cookieParser());
+
+  router.use('/auth', authRouter);
 
   return router;
 }

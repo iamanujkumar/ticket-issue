@@ -21,6 +21,7 @@ async function runCheck({ name, check }, log) {
 export function createHealthRouter(readinessChecks = []) {
   const router = Router();
 
+  // Liveness never checks dependencies: a database outage must not make the host restart a healthy process.
   router.get('/healthz', (_req, res) => {
     res.json({ status: 'ok' });
   });

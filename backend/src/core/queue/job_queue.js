@@ -20,6 +20,7 @@ export async function startJobQueue({ role }) {
   boss = new PgBoss({
     connectionString: process.env.DATABASE_URL,
     max: JOB_QUEUE_POOL_SIZE,
+    // Only the worker runs maintenance and listens for new jobs; the API process only sends jobs.
     supervise: isWorker,
     schedule: isWorker,
     useListenNotify: isWorker,
@@ -40,6 +41,7 @@ export function enqueue(name, payload, { tx, singletonKey, startAfter } = {}) {
   return startedBoss().send(name, payload, {
     singletonKey,
     startAfter,
+    // Inside the caller's transaction, the job exists only if the ticket insert commits.
     ...(tx && { db: fromPrisma(tx) }),
   });
 }

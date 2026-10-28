@@ -3,11 +3,12 @@ import { pinoHttp } from 'pino-http';
 import { logger } from '../logger.js';
 
 const REQUEST_ID_HEADER = 'x-request-id';
+// A client-supplied id is echoed into logs and headers, so only plain short ids are trusted.
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._-]{8,128}$/;
 const UNLOGGED_PATHS = new Set(['/healthz', '/readyz']);
 
 function pathOf(req) {
-  return req.url.split('?')[0];
+  return (req.originalUrl ?? req.url).split('?')[0];
 }
 
 function resolveRequestId(req, res) {
@@ -28,6 +29,7 @@ function describeRequest(req, res) {
   return `${req.method} ${pathOf(req)} ${res.statusCode}`;
 }
 
+// pino-http invents an error for every 5xx; the real error is logged by the error handler.
 function withoutStatusCodeError(_req, _res, _error, logObject) {
   const { err: _statusCodeError, ...rest } = logObject;
   return rest;

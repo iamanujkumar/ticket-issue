@@ -23,6 +23,7 @@ export function registerShutdown(tasks) {
 
     logger.info({ reason }, 'Shutting down');
 
+    // Hosts kill the process ~30 s after SIGTERM; exit on our own terms before that.
     setTimeout(() => {
       logger.fatal('Shutdown took too long, forcing exit');
       process.exit(1);

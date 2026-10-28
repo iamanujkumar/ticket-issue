@@ -67,6 +67,7 @@ export function errorHandler(error, req, res, next) {
 
   const appError = toAppError(error);
 
+  // Unknown errors may contain internals (SQL, paths, secrets): log them, show only a generic message.
   if (!appError) {
     req.log.error({ err: error }, 'Unhandled error');
     return res.status(500).json({
