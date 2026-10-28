@@ -3,3 +3,5 @@ export const DEFAULT_CURRENCY = 'INR';
 export const MIN_PAYOUT_THRESHOLD_MINOR = 100000;
 
 export const PAYOUT_DAYS_AFTER_QUARTER_END = 45;
+
+export const BUSINESS_TIME_ZONE = 'Asia/Kolkata';
