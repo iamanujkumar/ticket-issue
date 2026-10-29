@@ -1,4 +1,5 @@
 import { prisma } from '../../core/database/prisma.js';
+import { EVENT_TYPES, publishEvent } from '../../core/events/event_bus.js';
 import { ForbiddenError, ValidationError } from '../../core/errors/app_error.js';
 import { enqueue } from '../../core/queue/job_queue.js';
 import { QUEUES } from '../../core/queue/queues.js';
@@ -80,7 +81,11 @@ function enqueueDraftRefresh(ticketId, tx) {
   return enqueue(QUEUES.AI_DRAFT, { ticketId }, { tx, singletonKey: ticketId });
 }
 
-function saveChanges(ticketId, { expectedVersion, data, events, now, refreshDraft = false }) {
+function announce(type, ticket, tx, { visibleToAuthor = false } = {}) {
+  return publishEvent({ type, ticketId: ticket.id, authorId: ticket.authorId, visibleToAuthor }, tx);
+}
+
+function saveChanges(ticketId, { expectedVersion, data, events, now, refreshDraft = false, notify }) {
   return prisma.$transaction(async (tx) => {
     const updated = await ticketQuery.updateTicket(ticketId, { expectedVersion, data }, tx);
     if (!updated) {
@@ -89,6 +94,9 @@ function saveChanges(ticketId, { expectedVersion, data, events, now, refreshDraf
     await ticketQuery.createEvents(withTicketId(events, ticketId, now), tx);
     if (refreshDraft) {
       await enqueueDraftRefresh(ticketId, tx);
+    }
+    if (notify) {
+      await announce(notify.type, updated, tx, notify);
     }
     return updated;
   });
@@ -193,6 +201,7 @@ export async function createTicket(user, { bookId, subject, description }, now =
     );
     await ticketQuery.createEvents(withTicketId([event(TicketEventType.CREATED, user.userId)], created.id, now), tx);
     await enqueue(QUEUES.AI_TRIAGE, { ticketId: created.id }, { tx, singletonKey: created.id });
+    await announce(EVENT_TYPES.TICKET_CREATED, created, tx);
     return created;
   });
 
@@ -237,6 +246,7 @@ export async function updateTicket(user, ticketId, changes, now = new Date()) {
     events,
     now,
     refreshDraft: data.category !== undefined,
+    notify: { type: EVENT_TYPES.TICKET_UPDATED, visibleToAuthor: data.status !== undefined },
   });
   return present(user, updated, now);
 }
@@ -280,6 +290,7 @@ export async function addMessage(user, ticketId, { body }, now = new Date()) {
     if (!fromAdmin) {
       await enqueueDraftRefresh(ticket.id, tx);
     }
+    await announce(EVENT_TYPES.TICKET_MESSAGE_CREATED, ticket, tx, { visibleToAuthor: true });
     return created;
   });
 
@@ -299,6 +310,7 @@ export async function addNote(user, ticketId, { body }, now = new Date()) {
   const note = await prisma.$transaction(async (tx) => {
     const created = await ticketQuery.createNote({ ticketId: ticket.id, adminId: user.userId, body, createdAt: now }, tx);
     await ticketQuery.createEvents(withTicketId([event(TicketEventType.NOTE_ADDED, user.userId)], ticket.id, now), tx);
+    await announce(EVENT_TYPES.TICKET_NOTE_CREATED, ticket, tx);
     return created;
   });
 
@@ -365,6 +377,7 @@ export async function applyAiTriage(ticketId, result, now = new Date()) {
     },
     events: [event(TicketEventType.TRIAGED, null, null, `${result.category} / ${result.priority}`), ...events],
     now,
+    notify: { type: EVENT_TYPES.TICKET_TRIAGED },
   });
 }
 
@@ -376,6 +389,7 @@ export async function markTriageFailed(ticketId, now = new Date()) {
     data: { triageStatus: TriageStatus.FAILED, needsReview: true },
     events: [event(TicketEventType.TRIAGE_FAILED, null)],
     now,
+    notify: { type: EVENT_TYPES.TICKET_TRIAGED },
   });
 }
 
@@ -386,6 +400,7 @@ export async function requestAiTriage(user, ticketId) {
   await prisma.$transaction(async (tx) => {
     await ticketQuery.updateTicket(ticket.id, { data: { triageStatus: TriageStatus.PENDING } }, tx);
     await enqueue(QUEUES.AI_TRIAGE, { ticketId: ticket.id }, { tx, singletonKey: ticket.id });
+    await announce(EVENT_TYPES.TICKET_UPDATED, ticket, tx);
   });
 
   return { triageStatus: TriageStatus.PENDING };

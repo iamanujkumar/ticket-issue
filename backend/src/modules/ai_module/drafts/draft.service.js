@@ -1,3 +1,5 @@
+import { EVENT_TYPES, publishEvent } from '../../../core/events/event_bus.js';
+import { logger } from '../../../core/logger.js';
 import { enqueue } from '../../../core/queue/job_queue.js';
 import { QUEUES } from '../../../core/queue/queues.js';
 import { UserRole } from '../../auth_module/auth.enums.js';
@@ -77,6 +79,14 @@ async function completeWithFallback(ticketId, prompt) {
   throw lastError;
 }
 
+async function announceDraftUpdate(ticket) {
+  try {
+    await publishEvent({ type: EVENT_TYPES.TICKET_DRAFT_UPDATED, ticketId: ticket.id, authorId: ticket.authorId });
+  } catch (error) {
+    logger.warn({ err: error, ticketId: ticket.id }, 'Could not announce the draft update');
+  }
+}
+
 async function loadTicket(ticketId) {
   const ticket = await getTicketForAi(ticketId);
   if (!ticket) {
@@ -115,9 +125,12 @@ export async function generateDraft(ticketId, { requestedBy = null, instructions
       ...wordingHints(result.data.reply),
     ]);
 
-    return await aiQuery.completeDraft(draft.id, { content: result.data.reply, internalHints, model: result.model });
+    const ready = await aiQuery.completeDraft(draft.id, { content: result.data.reply, internalHints, model: result.model });
+    await announceDraftUpdate(ticket);
+    return ready;
   } catch (error) {
     await aiQuery.failDraft(draft.id, error.outcome ?? UNKNOWN_FAILURE);
+    await announceDraftUpdate(ticket);
     throw error;
   }
 }

@@ -59,19 +59,20 @@ model AiDraft {
 }
 
 model AiInvocation {
-  id               String    @id @default(uuid()) @db.Uuid
-  ticketId         String?   @map("ticket_id") @db.Uuid
-  task             AiTask
-  provider         String    @db.VarChar(40)
-  model            String    @db.VarChar(80)
-  promptVersion    String    @map("prompt_version") @db.VarChar(20)
-  inputTokens      Int?      @map("input_tokens")
-  outputTokens     Int?      @map("output_tokens")
-  latencyMs        Int       @map("latency_ms")
-  estimatedCostUsd Decimal?  @map("estimated_cost_usd") @db.Decimal(12, 6)
-  outcome          AiOutcome
-  errorMessage     String?   @map("error_message") @db.VarChar(300)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  id                String    @id @default(uuid()) @db.Uuid
+  ticketId          String?   @map("ticket_id") @db.Uuid
+  task              AiTask
+  provider          String    @db.VarChar(40)
+  model             String    @db.VarChar(80)
+  promptVersion     String    @map("prompt_version") @db.VarChar(20)
+  inputTokens       Int?      @map("input_tokens")
+  cachedInputTokens Int?      @map("cached_input_tokens")
+  outputTokens      Int?      @map("output_tokens")
+  latencyMs         Int       @map("latency_ms")
+  estimatedCostUsd  Decimal?  @map("estimated_cost_usd") @db.Decimal(12, 6)
+  outcome           AiOutcome
+  errorMessage      String?   @map("error_message") @db.VarChar(300)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
 

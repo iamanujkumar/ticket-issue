@@ -43,6 +43,7 @@ export function withResilience(provider, { logInvocation, breaker = createCircui
       model,
       promptVersion: request.promptVersion,
       inputTokens: usage?.inputTokens ?? null,
+      cachedInputTokens: usage?.cachedInputTokens ?? null,
       outputTokens: usage?.outputTokens ?? null,
       latencyMs,
       estimatedCostUsd: estimateCostUsd(model, usage),

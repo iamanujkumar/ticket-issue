@@ -241,3 +241,22 @@ describe('fake provider', () => {
     await expect(createFakeProvider({ fail: new AiTimeoutError() }).complete(request)).rejects.toBeInstanceOf(AiTimeoutError);
   });
 });
+
+describe('resilient provider token logging', () => {
+  it('stores cached input tokens reported by the provider', async () => {
+    const provider = {
+      name: 'test',
+      complete: (callRequest) =>
+        Promise.resolve({
+          json: { category: 'ROYALTY_PAYMENTS', confidence: 0.9 },
+          model: callRequest.model,
+          usage: { inputTokens: 800, cachedInputTokens: 512, outputTokens: 60 },
+        }),
+    };
+    const logInvocation = vi.fn();
+
+    await withResilience(provider, { logInvocation }).complete(request);
+
+    expect(logInvocation.mock.calls[0][0]).toMatchObject({ inputTokens: 800, cachedInputTokens: 512, outputTokens: 60 });
+  });
+});
