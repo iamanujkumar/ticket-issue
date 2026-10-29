@@ -242,6 +242,30 @@ frontend/
 bookleaf_sample_data.json
 ```
 
+## Assumptions
+
+Where the brief or the dataset left something open, I made these choices. Each one is easy to change.
+
+| Topic | Assumption | Where it shows |
+|---|---|---|
+| ₹1,000 payout threshold | Applies to the author's **total** pending royalty across all books, not per book | My Books message; AI facts |
+| Payout schedule | Quarters are calendar quarters (Jan–Mar …), paid by day 45 after the quarter ends (e.g. Q3 → 14 Nov) | Next payout date; AI drafts |
+| Currency | All royalties, including Amazon US / UK, are in INR, as in the dataset | Money formatting |
+| ISBN on books still in production | Two books (BK013, BK015) have an ISBN before the "ISBN Assignment" stage. Shown as-is with a "Book in production" badge, and the AI hint tells the admin to verify it. Not labelled "reserved", because the data doesn't say so | My Books; admin hints |
+| Dataset values | Loaded exactly as given. Unknown status strings stop the seed instead of being guessed | Seed |
+| SLA for the first reply | Critical 4 h, High 24 h, Medium 48 h, Low 72 h (the brief sets no numbers) | Queue badges; overdue sort |
+| Who can change what | Admins change status, category, priority and assignee. Authors can reply, which reopens a resolved ticket; the API also lets them close their own ticket (no button for it in this UI). A closed ticket is final | Ticket page |
+| Attachments | UI only, as the brief allows. Files are checked (images / PDF, 5 MB, 3 files) but not uploaded, and the form says so | New ticket form |
+| Support email | The KB gives none, so it is a setting (`SUPPORT_EMAIL`, demo value `support@bookleaf.test`). Drafts ask authors to reply on the ticket, and use the email only for photos of defective copies | AI drafts |
+| "Refund" wording | BookLeaf's policy has no refunds, so a claim of money not received is ranked at least Medium and the closest category is chosen | AI triage |
+| Accounts | Authors and admins come from the seed; no sign-up or password reset | Login |
+
+**Questions I would confirm with BookLeaf:**
+- Can a book have an ISBN before the "ISBN Assignment" stage?
+- Is the threshold per author or per book?
+- Are US / UK royalties paid in INR?
+- What is the real support email?
+
 ## Known limitations and what I'd do next
 - **Attachments are UI only**, as the brief allows. Next: object storage with pre-signed uploads, virus scanning and an `attachments` table.
 - **Free hosting:**
@@ -253,8 +277,3 @@ bookleaf_sample_data.json
 - **No sign-up or password reset.** Accounts come from the seed.
 - **Statistics have an API (`/stats/overview`) but no dashboard screen yet.**
 - **Ambiguous money wording** ("refund") is now ranked at least Medium, but whether it is flagged "Needs review" depends on the model's confidence on that run.
-- **Questions for BookLeaf:**
-  - Can a book have an ISBN before the "ISBN Assignment" stage?
-  - Is the ₹1,000 threshold per author or per book? We assumed per author.
-  - Are US / UK royalties paid in INR?
-  - What is the real support email?
