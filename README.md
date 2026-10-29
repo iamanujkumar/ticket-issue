@@ -7,8 +7,8 @@ A web app with two portals for BookLeaf Publishing:
 | | |
 |---|---|
 | **Live app** | https://YOUR-APP.vercel.app |
-| **API docs (Swagger UI)** | https://YOUR-RENDER-SERVICE.onrender.com/api/docs |
-| **OpenAPI spec** | https://YOUR-RENDER-SERVICE.onrender.com/api/v1/openapi.json |
+| **API docs (Swagger UI)** | https://ticket-issue-9fx8.onrender.com/api/docs |
+| **OpenAPI spec** | https://ticket-issue-9fx8.onrender.com/api/v1/openapi.json |
 
 > The API runs on Render's free tier, which sleeps when idle. The **first request can take about a minute** while it wakes up; after that it is fast.
 
