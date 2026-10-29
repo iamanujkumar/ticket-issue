@@ -168,3 +168,38 @@ export function listEvents(ticketId) {
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
 }
+
+export async function ticketStats({ since, now }) {
+  const [[counts], byPriority, byCategory, [firstResponse], [classification]] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT
+        count(*) FILTER (WHERE t.status = 'OPEN')::int AS open,
+        count(*) FILTER (WHERE t.status = 'IN_PROGRESS')::int AS in_progress,
+        count(*) FILTER (WHERE t.status = 'RESOLVED')::int AS resolved,
+        count(*) FILTER (WHERE t.status = 'CLOSED')::int AS closed,
+        count(*) FILTER (WHERE ${UNRESOLVED_SQL} AND t.assignee_id IS NULL)::int AS unassigned,
+        count(*) FILTER (WHERE ${overdueSql(now)})::int AS overdue,
+        count(*) FILTER (WHERE ${UNRESOLVED_SQL} AND t.needs_review)::int AS needs_review,
+        count(*) FILTER (WHERE t.created_at >= ${since})::int AS created_in_window
+      FROM tickets t`,
+    prisma.$queryRaw`SELECT t.priority::text AS key, count(*)::int AS count FROM tickets t WHERE ${UNRESOLVED_SQL} GROUP BY t.priority`,
+    prisma.$queryRaw`SELECT t.category::text AS key, count(*)::int AS count FROM tickets t WHERE ${UNRESOLVED_SQL} GROUP BY t.category`,
+    prisma.$queryRaw`
+      SELECT
+        count(*)::int AS answered,
+        count(*) FILTER (WHERE t.first_response_at <= t.sla_due_at)::int AS within_sla,
+        (percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM t.first_response_at - t.created_at)) / 60)::float8 AS median_minutes
+      FROM tickets t
+      WHERE t.created_at >= ${since} AND t.first_response_at IS NOT NULL`,
+    prisma.$queryRaw`
+      SELECT
+        count(*) FILTER (WHERE t.triage_status = 'COMPLETED')::int AS triaged,
+        count(*) FILTER (WHERE t.triage_status = 'FAILED')::int AS failed,
+        count(*) FILTER (WHERE t.triage_status = 'COMPLETED' AND t.category_source = 'ADMIN' AND t.category <> t.ai_category)::int AS category_overridden,
+        count(*) FILTER (WHERE t.triage_status = 'COMPLETED' AND t.priority_source = 'ADMIN' AND t.priority <> t.ai_priority)::int AS priority_overridden
+      FROM tickets t
+      WHERE t.created_at >= ${since}`,
+  ]);
+
+  return { counts, byPriority, byCategory, firstResponse, classification };
+}

@@ -1,13 +1,21 @@
 import { prisma } from '../../core/database/prisma.js';
 import { EVENT_TYPES, publishEvent } from '../../core/events/event_bus.js';
 import { ForbiddenError, ValidationError } from '../../core/errors/app_error.js';
+import { ratio, roundTo } from '../../core/utils/numbers.js';
 import { enqueue } from '../../core/queue/job_queue.js';
 import { QUEUES } from '../../core/queue/queues.js';
 import { UserRole } from '../auth_module/auth.enums.js';
 import { getActiveAdmin } from '../auth_module/auth.service.js';
 import { BookNotFoundError } from '../book_module/book.errors.js';
 import { getOwnedBook } from '../book_module/book.service.js';
-import { ClassificationSource, TicketEventType, TicketStatus, TriageStatus } from './ticket.enums.js';
+import {
+  ClassificationSource,
+  TicketCategory,
+  TicketEventType,
+  TicketPriority,
+  TicketStatus,
+  TriageStatus,
+} from './ticket.enums.js';
 import {
   InvalidAssigneeError,
   TicketClosedError,
@@ -404,4 +412,41 @@ export async function requestAiTriage(user, ticketId) {
   });
 
   return { triageStatus: TriageStatus.PENDING };
+}
+
+function countsByValue(values, rows) {
+  const counts = Object.fromEntries(values.map((value) => [value, 0]));
+  for (const { key, count } of rows) counts[key] = count;
+  return counts;
+}
+
+export async function getTicketStats({ since, now = new Date() }) {
+  const { counts, byPriority, byCategory, firstResponse, classification } = await ticketQuery.ticketStats({ since, now });
+
+  return {
+    byStatus: {
+      [TicketStatus.OPEN]: counts.open,
+      [TicketStatus.IN_PROGRESS]: counts.in_progress,
+      [TicketStatus.RESOLVED]: counts.resolved,
+      [TicketStatus.CLOSED]: counts.closed,
+    },
+    unresolved: counts.open + counts.in_progress,
+    unassigned: counts.unassigned,
+    overdue: counts.overdue,
+    needsReview: counts.needs_review,
+    unresolvedByPriority: countsByValue(Object.values(TicketPriority), byPriority),
+    unresolvedByCategory: countsByValue(Object.values(TicketCategory), byCategory),
+    createdInWindow: counts.created_in_window,
+    firstResponse: {
+      answered: firstResponse.answered,
+      medianMinutes: roundTo(firstResponse.median_minutes, 1),
+      slaMetRate: ratio(firstResponse.within_sla, firstResponse.answered),
+    },
+    aiClassification: {
+      triaged: classification.triaged,
+      failed: classification.failed,
+      categoryOverrideRate: ratio(classification.category_overridden, classification.triaged),
+      priorityOverrideRate: ratio(classification.priority_overridden, classification.triaged),
+    },
+  };
 }

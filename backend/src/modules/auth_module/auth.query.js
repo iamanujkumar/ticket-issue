@@ -1,4 +1,5 @@
 import { prisma } from '../../core/database/prisma.js';
+import { UserRole } from './auth.enums.js';
 
 const WITH_AUTHOR_ID = { author: { select: { id: true } } };
 
@@ -57,5 +58,13 @@ export function upsertAuthorByCode({ code, userId, phone, city, joinedDate }, db
     where: { code },
     create: { code, userId, phone, city, joinedDate },
     update: { userId, phone, city, joinedDate },
+  });
+}
+
+export function listActiveAdmins() {
+  return prisma.user.findMany({
+    where: { role: UserRole.ADMIN, isActive: true },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: 'asc' },
   });
 }

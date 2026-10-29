@@ -122,3 +122,7 @@ export async function getActiveAdmin(userId) {
   const user = await authQuery.findUserById(userId);
   return user?.isActive && user.role === UserRole.ADMIN ? user : null;
 }
+
+export function listActiveAdmins() {
+  return authQuery.listActiveAdmins();
+}

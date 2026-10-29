@@ -46,3 +46,32 @@ export function countRegenerationsSince(ticketId, since) {
     where: { ticketId, requestedById: { not: null }, createdAt: { gte: since } },
   });
 }
+
+export async function aiStats({ since }) {
+  const [calls, [tickets], [drafts]] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT
+        task::text AS task,
+        outcome::text AS outcome,
+        count(*)::int AS calls,
+        coalesce(sum(input_tokens), 0)::int AS input_tokens,
+        coalesce(sum(cached_input_tokens), 0)::int AS cached_input_tokens,
+        coalesce(sum(output_tokens), 0)::int AS output_tokens,
+        coalesce(sum(estimated_cost_usd), 0)::float8 AS cost_usd,
+        coalesce(sum(latency_ms), 0)::int AS latency_ms
+      FROM ai_invocations
+      WHERE created_at >= ${since}
+      GROUP BY task, outcome`,
+    prisma.$queryRaw`SELECT count(DISTINCT ticket_id)::int AS count FROM ai_invocations WHERE created_at >= ${since}`,
+    prisma.$queryRaw`
+      SELECT
+        count(*) FILTER (WHERE status = 'READY')::int AS ready,
+        count(*) FILTER (WHERE status = 'FAILED')::int AS failed,
+        count(*) FILTER (WHERE usage = 'UNCHANGED')::int AS sent_unchanged,
+        count(*) FILTER (WHERE usage = 'EDITED')::int AS sent_edited
+      FROM ai_drafts
+      WHERE created_at >= ${since}`,
+  ]);
+
+  return { calls, ticketCount: tickets.count, drafts };
+}
