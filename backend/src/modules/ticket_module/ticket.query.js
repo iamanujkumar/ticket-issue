@@ -81,6 +81,17 @@ export function findTicketById(ticketId, { authorId } = {}) {
   return prisma.ticket.findFirst({ where: { id: ticketId, authorId }, include: TICKET_DETAILS });
 }
 
+export function findTicketForAi(ticketId) {
+  return prisma.ticket.findUnique({
+    where: { id: ticketId },
+    include: {
+      author: { select: { id: true, user: { select: { name: true } } } },
+      book: { include: { platforms: { select: { platform: true }, orderBy: { platform: 'asc' } } } },
+      messages: { select: { id: true, senderRole: true, body: true, createdAt: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+    },
+  });
+}
+
 export async function listAuthorTickets(authorId, { page, pageSize }) {
   const where = { authorId };
   const [tickets, total] = await Promise.all([

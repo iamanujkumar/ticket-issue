@@ -46,7 +46,8 @@ export async function deleteTestUsers() {
   const tickets = await prisma.ticket.findMany({ where: ofTestAuthors, select: { id: true } });
   if (tickets.length > 0) {
     const ticketIds = tickets.map(({ id }) => id);
-    await prisma.$executeRaw`DELETE FROM pgboss.job WHERE singleton_key = ANY(${ticketIds}::text[])`;
+    await prisma.$executeRaw`DELETE FROM pgboss.job WHERE split_part(singleton_key, ':', 1) = ANY(${ticketIds}::text[])`;
+    await prisma.aiInvocation.deleteMany({ where: { ticketId: { in: ticketIds } } });
   }
 
   await prisma.ticket.deleteMany({ where: ofTestAuthors });

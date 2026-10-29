@@ -6,7 +6,7 @@ import { UserRole } from '../auth_module/auth.enums.js';
 import { getActiveAdmin } from '../auth_module/auth.service.js';
 import { BookNotFoundError } from '../book_module/book.errors.js';
 import { getOwnedBook } from '../book_module/book.service.js';
-import { ClassificationSource, TicketEventType, TicketStatus } from './ticket.enums.js';
+import { ClassificationSource, TicketEventType, TicketStatus, TriageStatus } from './ticket.enums.js';
 import {
   InvalidAssigneeError,
   TicketClosedError,
@@ -15,12 +15,12 @@ import {
   VersionConflictError,
 } from './ticket.errors.js';
 import { toAdminTicket, toAuthorTicket, toEvent, toMessage, toNote } from './ticket.mapper.js';
+import { findPlaceholders } from './ticket.placeholders.js';
 import * as ticketQuery from './ticket.query.js';
 import { classifyByRules } from './ticket.rules_triage.js';
 import { slaDueAt } from './ticket.sla.js';
 import { assertTransition, transitionChanges } from './ticket.state_machine.js';
 
-const PLACEHOLDER_PATTERN = /\[[^\]\n]{1,60}\]/g;
 const EVENT_VALUE_MAX_LENGTH = 80;
 
 function isAdmin(user) {
@@ -76,13 +76,20 @@ async function assertBookBelongsToAuthor(authorId, bookId) {
   }
 }
 
-function saveChanges(ticketId, { expectedVersion, data, events, now }) {
+function enqueueDraftRefresh(ticketId, tx) {
+  return enqueue(QUEUES.AI_DRAFT, { ticketId }, { tx, singletonKey: ticketId });
+}
+
+function saveChanges(ticketId, { expectedVersion, data, events, now, refreshDraft = false }) {
   return prisma.$transaction(async (tx) => {
     const updated = await ticketQuery.updateTicket(ticketId, { expectedVersion, data }, tx);
     if (!updated) {
       throw new VersionConflictError();
     }
     await ticketQuery.createEvents(withTicketId(events, ticketId, now), tx);
+    if (refreshDraft) {
+      await enqueueDraftRefresh(ticketId, tx);
+    }
     return updated;
   });
 }
@@ -159,10 +166,6 @@ function authorChanges(ticket, changes, actorId, now) {
   return { data, events };
 }
 
-function findPlaceholders(body) {
-  return [...new Set(body.match(PLACEHOLDER_PATTERN) ?? [])];
-}
-
 export async function createTicket(user, { bookId, subject, description }, now = new Date()) {
   const authorId = ownAuthorId(user);
   if (bookId) {
@@ -233,6 +236,7 @@ export async function updateTicket(user, ticketId, changes, now = new Date()) {
     data: { ...data, lastActivityAt: now },
     events,
     now,
+    refreshDraft: data.category !== undefined,
   });
   return present(user, updated, now);
 }
@@ -273,6 +277,9 @@ export async function addMessage(user, ticketId, { body }, now = new Date()) {
     );
     await ticketQuery.updateTicket(ticket.id, { data }, tx);
     await ticketQuery.createEvents(withTicketId(events, ticket.id, now), tx);
+    if (!fromAdmin) {
+      await enqueueDraftRefresh(ticket.id, tx);
+    }
     return created;
   });
 
@@ -308,4 +315,78 @@ export async function listEvents(user, ticketId) {
   requireAdmin(user);
   const ticket = await loadTicket(user, ticketId);
   return (await ticketQuery.listEvents(ticket.id)).map(toEvent);
+}
+
+export function getTicketForAi(ticketId) {
+  return ticketQuery.findTicketForAi(ticketId);
+}
+
+function aiClassificationChanges(ticket, { category, priority }) {
+  const data = {};
+  const events = [];
+
+  if (ticket.categorySource !== ClassificationSource.ADMIN) {
+    data.categorySource = ClassificationSource.AI;
+    if (category !== ticket.category) {
+      data.category = category;
+      events.push(event(TicketEventType.CATEGORY_CHANGED, null, ticket.category, category));
+    }
+  }
+
+  if (ticket.prioritySource !== ClassificationSource.ADMIN) {
+    data.prioritySource = ClassificationSource.AI;
+    if (priority !== ticket.priority) {
+      data.priority = priority;
+      events.push(event(TicketEventType.PRIORITY_CHANGED, null, ticket.priority, priority));
+      if (!ticket.firstResponseAt) {
+        data.slaDueAt = slaDueAt(ticket.createdAt, priority);
+      }
+    }
+  }
+
+  return { data, events };
+}
+
+export async function applyAiTriage(ticketId, result, now = new Date()) {
+  const ticket = await ticketQuery.findTicketById(ticketId);
+  if (!ticket) return null;
+
+  const { data, events } = aiClassificationChanges(ticket, result);
+
+  return saveChanges(ticket.id, {
+    data: {
+      ...data,
+      aiCategory: result.category,
+      aiPriority: result.priority,
+      aiConfidence: result.confidence,
+      aiRationale: result.rationale,
+      triageStatus: TriageStatus.COMPLETED,
+      needsReview: result.needsReview,
+    },
+    events: [event(TicketEventType.TRIAGED, null, null, `${result.category} / ${result.priority}`), ...events],
+    now,
+  });
+}
+
+export async function markTriageFailed(ticketId, now = new Date()) {
+  const ticket = await ticketQuery.findTicketById(ticketId);
+  if (!ticket) return null;
+
+  return saveChanges(ticket.id, {
+    data: { triageStatus: TriageStatus.FAILED, needsReview: true },
+    events: [event(TicketEventType.TRIAGE_FAILED, null)],
+    now,
+  });
+}
+
+export async function requestAiTriage(user, ticketId) {
+  requireAdmin(user);
+  const ticket = await loadTicket(user, ticketId);
+
+  await prisma.$transaction(async (tx) => {
+    await ticketQuery.updateTicket(ticket.id, { data: { triageStatus: TriageStatus.PENDING } }, tx);
+    await enqueue(QUEUES.AI_TRIAGE, { ticketId: ticket.id }, { tx, singletonKey: ticket.id });
+  });
+
+  return { triageStatus: TriageStatus.PENDING };
 }

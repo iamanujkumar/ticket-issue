@@ -5,8 +5,10 @@ import { createHealthRouter } from './core/health/health.routes.js';
 import { errorHandler, notFoundHandler } from './core/middlewares/error_handler.js';
 import { rejectForeignOrigins, requireJsonBody } from './core/middlewares/request_guards.js';
 import { requestLogger } from './core/middlewares/request_logger.js';
+import { aiRouter } from './modules/ai_module/ai.routes.js';
 import { authRouter } from './modules/auth_module/auth.routes.js';
 import { bookRouter } from './modules/book_module/book.routes.js';
+import { realtimeRouter } from './modules/realtime_module/realtime.routes.js';
 import { ticketRouter } from './modules/ticket_module/ticket.routes.js';
 
 const JSON_BODY_LIMIT = '100kb';
@@ -22,6 +24,8 @@ function createApiRouter() {
   router.use('/auth', authRouter);
   router.use('/books', bookRouter);
   router.use('/tickets', ticketRouter);
+  router.use('/tickets', aiRouter);
+  router.use('/events', realtimeRouter);
 
   return router;
 }

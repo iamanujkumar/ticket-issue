@@ -1,9 +1,16 @@
-import { AppError, ERROR_CODES, NotFoundError } from '../../core/errors/app_error.js';
+import { AppError, ConflictError, ERROR_CODES, NotFoundError } from '../../core/errors/app_error.js';
 import { AiOutcome } from './ai.enums.js';
 
 export const AI_ERROR_CODES = Object.freeze({
   DRAFT_NOT_FOUND: 'DRAFT_NOT_FOUND',
+  DRAFT_ALREADY_SENT: 'DRAFT_ALREADY_SENT',
 });
+
+export class DraftAlreadySentError extends ConflictError {
+  constructor() {
+    super({ code: AI_ERROR_CODES.DRAFT_ALREADY_SENT, message: 'This draft has already been sent.' });
+  }
+}
 
 export class AiError extends Error {
   constructor(message, { outcome, retryable }) {

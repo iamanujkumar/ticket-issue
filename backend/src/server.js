@@ -3,6 +3,9 @@ import { checkDatabase, disconnectDatabase } from './core/database/prisma.js';
 import { registerShutdown } from './core/lifecycle.js';
 import { logger } from './core/logger.js';
 import { checkJobQueue, startJobQueue, stopJobQueue } from './core/queue/job_queue.js';
+import { registerAiJobs } from './modules/ai_module/ai.jobs.js';
+import { closeAllStreams } from './modules/realtime_module/realtime.hub.js';
+import { startEventListener, stopEventListener } from './modules/realtime_module/realtime.listener.js';
 
 const port = Number(process.env.PORT ?? 4000);
 const runsWorkerInProcess = process.env.RUN_WORKER_IN_PROCESS === 'true';
@@ -15,6 +18,10 @@ function closeHttpServer(server) {
 
 async function main() {
   await startJobQueue({ role: runsWorkerInProcess ? 'worker' : 'producer' });
+  if (runsWorkerInProcess) {
+    await registerAiJobs();
+  }
+  await startEventListener();
 
   const app = createApp({
     readinessChecks: [
@@ -33,7 +40,9 @@ async function main() {
   });
 
   registerShutdown([
+    { name: 'live update streams', run: closeAllStreams },
     { name: 'http server', run: () => closeHttpServer(server) },
+    { name: 'realtime listener', run: stopEventListener },
     { name: 'job queue', run: stopJobQueue },
     { name: 'database', run: disconnectDatabase },
   ]);
