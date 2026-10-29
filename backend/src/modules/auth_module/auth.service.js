@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '../../core/database/prisma.js';
 import { UnauthenticatedError } from '../../core/errors/app_error.js';
 import { REFRESH_TOKEN_TTL_DAYS } from './auth.constants.js';
+import { UserRole } from './auth.enums.js';
 import { InvalidCredentialsError, RefreshTokenReuseError, SessionExpiredError } from './auth.errors.js';
 import { toAuthUser } from './auth.mapper.js';
 import { verifyAgainstDummyHash, verifyPassword } from './auth.password.js';
@@ -115,4 +116,9 @@ export async function getCurrentUser(userId) {
     throw new UnauthenticatedError();
   }
   return toAuthUser(user);
+}
+
+export async function getActiveAdmin(userId) {
+  const user = await authQuery.findUserById(userId);
+  return user?.isActive && user.role === UserRole.ADMIN ? user : null;
 }

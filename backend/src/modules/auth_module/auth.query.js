@@ -43,3 +43,19 @@ export function revokeTokenFamily(familyId) {
     data: { revokedAt: new Date() },
   });
 }
+
+export function upsertUserByEmail({ email, name, role, passwordHash }, db = prisma) {
+  return db.user.upsert({
+    where: { email },
+    create: { email, name, role, passwordHash },
+    update: { name, role, passwordHash, isActive: true },
+  });
+}
+
+export function upsertAuthorByCode({ code, userId, phone, city, joinedDate }, db = prisma) {
+  return db.author.upsert({
+    where: { code },
+    create: { code, userId, phone, city, joinedDate },
+    update: { userId, phone, city, joinedDate },
+  });
+}

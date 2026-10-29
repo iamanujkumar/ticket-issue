@@ -1,0 +1,81 @@
+enum DraftStatus {
+  PENDING
+  READY
+  FAILED
+
+  @@map("draft_status")
+}
+
+enum DraftUsage {
+  UNCHANGED
+  EDITED
+
+  @@map("draft_usage")
+}
+
+enum AiTask {
+  TRIAGE
+  DRAFT
+
+  @@map("ai_task")
+}
+
+enum AiOutcome {
+  SUCCESS
+  INVALID_OUTPUT
+  RATE_LIMITED
+  TIMEOUT
+  PROVIDER_ERROR
+  CIRCUIT_OPEN
+  DISABLED
+
+  @@map("ai_outcome")
+}
+
+model AiDraft {
+  id                   String         @id @default(uuid()) @db.Uuid
+  ticketId             String         @map("ticket_id") @db.Uuid
+  status               DraftStatus    @default(PENDING)
+  content              String?
+  internalHints        Json           @default("[]") @map("internal_hints")
+  basedOnMessageId     String?        @map("based_on_message_id") @db.Uuid
+  categoryAtGeneration TicketCategory @map("category_at_generation")
+  model                String?        @db.VarChar(80)
+  promptVersion        String         @map("prompt_version") @db.VarChar(20)
+  instructions         String?        @db.VarChar(300)
+  requestedById        String?        @map("requested_by") @db.Uuid
+  errorCode            String?        @map("error_code") @db.VarChar(40)
+  usage                DraftUsage?
+  sentMessageId        String?        @unique @map("sent_message_id") @db.Uuid
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ticket      Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  requestedBy User?          @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  sentMessage TicketMessage? @relation(fields: [sentMessageId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@map("ai_drafts")
+}
+
+model AiInvocation {
+  id               String    @id @default(uuid()) @db.Uuid
+  ticketId         String?   @map("ticket_id") @db.Uuid
+  task             AiTask
+  provider         String    @db.VarChar(40)
+  model            String    @db.VarChar(80)
+  promptVersion    String    @map("prompt_version") @db.VarChar(20)
+  inputTokens      Int?      @map("input_tokens")
+  outputTokens     Int?      @map("output_tokens")
+  latencyMs        Int       @map("latency_ms")
+  estimatedCostUsd Decimal?  @map("estimated_cost_usd") @db.Decimal(12, 6)
+  outcome          AiOutcome
+  errorMessage     String?   @map("error_message") @db.VarChar(300)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([createdAt])
+  @@map("ai_invocations")
+}

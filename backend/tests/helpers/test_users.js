@@ -25,8 +25,33 @@ export async function createTestUser({ role = 'AUTHOR', isActive = true } = {}) 
   return { user, email, password: TEST_PASSWORD };
 }
 
-export function deleteTestUsers() {
-  return prisma.user.deleteMany({ where: { email: { endsWith: `@${TEST_EMAIL_DOMAIN}` } } });
+export function createTestBook(authorId, overrides = {}) {
+  const tag = randomUUID().slice(0, 8);
+  return prisma.book.create({
+    data: {
+      code: `T${tag}`,
+      authorId,
+      title: `Test Book ${tag}`,
+      genre: 'Test',
+      status: 'PUBLISHED',
+      ...overrides,
+    },
+  });
+}
+
+export async function deleteTestUsers() {
+  const testEmails = { email: { endsWith: `@${TEST_EMAIL_DOMAIN}` } };
+  const ofTestAuthors = { author: { user: testEmails } };
+
+  const tickets = await prisma.ticket.findMany({ where: ofTestAuthors, select: { id: true } });
+  if (tickets.length > 0) {
+    const ticketIds = tickets.map(({ id }) => id);
+    await prisma.$executeRaw`DELETE FROM pgboss.job WHERE singleton_key = ANY(${ticketIds}::text[])`;
+  }
+
+  await prisma.ticket.deleteMany({ where: ofTestAuthors });
+  await prisma.book.deleteMany({ where: ofTestAuthors });
+  return prisma.user.deleteMany({ where: testEmails });
 }
 
 export function cookiesFrom(response) {

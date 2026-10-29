@@ -60,6 +60,7 @@ model Book {
 
   author    Author         @relation(fields: [authorId], references: [id], onDelete: Restrict)
   platforms BookPlatform[]
+  tickets   Ticket[]
 
   @@index([authorId])
   @@map("books")

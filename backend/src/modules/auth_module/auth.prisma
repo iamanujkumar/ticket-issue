@@ -16,8 +16,13 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  author        Author?
-  refreshTokens RefreshToken[]
+  author          Author?
+  refreshTokens   RefreshToken[]
+  assignedTickets Ticket[]        @relation("TicketAssignee")
+  messages        TicketMessage[]
+  notes           InternalNote[]
+  ticketEvents    TicketEvent[]
+  requestedDrafts AiDraft[]
 
   @@map("users")
 }
@@ -30,8 +35,9 @@ model Author {
   city       String?  @db.VarChar(80)
   joinedDate DateTime @map("joined_date") @db.Date
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  books Book[]
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  books   Book[]
+  tickets Ticket[]
 
   @@map("authors")
 }

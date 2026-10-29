@@ -1,0 +1,151 @@
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+
+  @@map("ticket_status")
+}
+
+enum TicketCategory {
+  ROYALTY_PAYMENTS
+  ISBN_METADATA
+  PRINTING_QUALITY
+  DISTRIBUTION_AVAILABILITY
+  BOOK_STATUS_PRODUCTION
+  GENERAL_INQUIRY
+
+  @@map("ticket_category")
+}
+
+enum TicketPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+
+  @@map("ticket_priority")
+}
+
+enum ClassificationSource {
+  RULES
+  AI
+  ADMIN
+
+  @@map("classification_source")
+}
+
+enum TriageStatus {
+  PENDING
+  COMPLETED
+  FAILED
+
+  @@map("triage_status")
+}
+
+enum TicketEventType {
+  CREATED
+  STATUS_CHANGED
+  CATEGORY_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  REPLIED
+  NOTE_ADDED
+  REOPENED
+  TRIAGED
+  TRIAGE_FAILED
+
+  @@map("ticket_event_type")
+}
+
+model Ticket {
+  id              String               @id @default(uuid()) @db.Uuid
+  number          Int                  @unique @default(autoincrement())
+  authorId        String               @map("author_id") @db.Uuid
+  bookId          String?              @map("book_id") @db.Uuid
+  subject         String               @db.VarChar(200)
+  description     String
+  status          TicketStatus         @default(OPEN)
+  category        TicketCategory
+  categorySource  ClassificationSource @map("category_source")
+  priority        TicketPriority
+  prioritySource  ClassificationSource @map("priority_source")
+  aiCategory      TicketCategory?      @map("ai_category")
+  aiPriority      TicketPriority?      @map("ai_priority")
+  aiConfidence    Decimal?             @map("ai_confidence") @db.Decimal(3, 2)
+  aiRationale     String?              @map("ai_rationale") @db.VarChar(300)
+  triageStatus    TriageStatus         @default(PENDING) @map("triage_status")
+  needsReview     Boolean              @default(false) @map("needs_review")
+  assigneeId      String?              @map("assignee_id") @db.Uuid
+  slaDueAt        DateTime             @map("sla_due_at") @db.Timestamptz(3)
+  firstResponseAt DateTime?            @map("first_response_at") @db.Timestamptz(3)
+  resolvedAt      DateTime?            @map("resolved_at") @db.Timestamptz(3)
+  closedAt        DateTime?            @map("closed_at") @db.Timestamptz(3)
+  lastActivityAt  DateTime             @default(now()) @map("last_activity_at") @db.Timestamptz(3)
+  version         Int                  @default(1)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  author        Author          @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  book          Book?           @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  assignee      User?           @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages      TicketMessage[]
+  notes         InternalNote[]
+  events        TicketEvent[]
+  aiDrafts      AiDraft[]
+  aiInvocations AiInvocation[]
+
+  @@index([status, priority, createdAt])
+  @@index([authorId, lastActivityAt])
+  @@index([assigneeId, status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  senderId   String   @map("sender_id") @db.Uuid
+  senderRole UserRole @map("sender_role")
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ticket Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User     @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  draft  AiDraft?
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+model InternalNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  adminId   String   @map("admin_id") @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  admin  User   @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
+  @@map("internal_notes")
+}
+
+model TicketEvent {
+  id        String          @id @default(uuid()) @db.Uuid
+  ticketId  String          @map("ticket_id") @db.Uuid
+  actorId   String?         @map("actor_id") @db.Uuid
+  type      TicketEventType
+  fromValue String?         @map("from_value") @db.VarChar(80)
+  toValue   String?         @map("to_value") @db.VarChar(80)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_events")
+}
