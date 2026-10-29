@@ -29,10 +29,18 @@ export function payoutDeadline(quarter) {
   return toIsoDate(deadline);
 }
 
-export function nextPayout(now = new Date()) {
+export function upcomingPayoutQuarter(now = new Date()) {
   const today = toBusinessDate(now);
   const lastEndedQuarter = previousQuarter(quarterOf(today));
-  const quarter = payoutDeadline(lastEndedQuarter) >= today ? lastEndedQuarter : quarterOf(today);
+  return payoutDeadline(lastEndedQuarter) >= today ? lastEndedQuarter : quarterOf(today);
+}
+
+export function lastSettledQuarterEnd(now = new Date()) {
+  return quarterEnd(previousQuarter(upcomingPayoutQuarter(now)));
+}
+
+export function nextPayout(now = new Date()) {
+  const quarter = upcomingPayoutQuarter(now);
 
   return {
     quarter: `Q${quarter.quarter} ${quarter.year}`,

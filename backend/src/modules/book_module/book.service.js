@@ -31,8 +31,12 @@ export async function getBook(user, bookId) {
   return toBook(book);
 }
 
-export async function getRoyaltySummary(user, now = new Date()) {
-  const totals = await bookQuery.sumRoyalties(ownAuthorId(user));
+export function getRoyaltySummary(user, now = new Date()) {
+  return getAuthorRoyaltySummary(ownAuthorId(user), now);
+}
+
+export async function getAuthorRoyaltySummary(authorId, now = new Date()) {
+  const totals = await bookQuery.sumRoyalties(authorId);
 
   return {
     totals: {

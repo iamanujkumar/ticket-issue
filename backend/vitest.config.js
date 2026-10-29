@@ -8,6 +8,7 @@ if (existsSync('.env')) {
 const quietLogs = {
   LOG_LEVEL: 'silent',
   LOG_PRETTY: 'false',
+  AI_PROVIDER: 'fake',
 };
 
 export default defineConfig({

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  lastSettledQuarterEnd,
   nextPayout,
   payoutDeadline,
   quarterEnd,
   quarterOf,
   toBusinessDate,
+  upcomingPayoutQuarter,
 } from '../../../src/modules/book_module/book.royalty_calendar.js';
 
 const indiaMidday = (isoDate) => new Date(`${isoDate}T12:00:00+05:30`);
@@ -58,5 +60,17 @@ describe('nextPayout', () => {
 
     expect(toBusinessDate(justAfterMidnightInIndia)).toBe('2026-11-15');
     expect(nextPayout(justAfterMidnightInIndia)).toEqual({ quarter: 'Q4 2026', paidBy: '2027-02-14' });
+  });
+});
+
+describe('upcomingPayoutQuarter and lastSettledQuarterEnd', () => {
+  it.each([
+    ['2026-10-29', { year: 2026, quarter: 3 }, '2026-06-30'],
+    ['2026-11-15', { year: 2026, quarter: 4 }, '2026-09-30'],
+    ['2027-02-14', { year: 2026, quarter: 4 }, '2026-09-30'],
+    ['2027-02-15', { year: 2027, quarter: 1 }, '2026-12-31'],
+  ])('on %s the upcoming payout is %o and the last settled quarter ended %s', (today, quarter, settledEnd) => {
+    expect(upcomingPayoutQuarter(indiaMidday(today))).toEqual(quarter);
+    expect(lastSettledQuarterEnd(indiaMidday(today))).toBe(settledEnd);
   });
 });
