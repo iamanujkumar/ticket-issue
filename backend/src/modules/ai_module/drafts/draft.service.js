@@ -12,6 +12,7 @@ import {
   MODELS,
   REASONING_EFFORT,
   REGENERATE_LIMIT,
+  SUPPORT_EMAIL,
   TEMPERATURE,
   TIMEOUTS_MS,
 } from '../ai.constants.js';
@@ -24,7 +25,7 @@ import {
   DRAFT_JSON_SCHEMA,
   DRAFT_PROMPT_VERSION,
   draftOutputSchema,
-} from '../prompts/draft.prompt.v1.js';
+} from '../prompts/draft.prompt.v2.js';
 import { getAiProvider } from '../providers/index.js';
 
 const WORDING_TO_CHECK = /\b(overdue|delayed|flagged)\b/gi;
@@ -114,7 +115,13 @@ export async function generateDraft(ticketId, { requestedBy = null, instructions
 
   try {
     const royaltySummary = await getAuthorRoyaltySummary(ticket.authorId, now);
-    const facts = buildFacts({ authorName: ticket.author.user.name, book: ticket.book, royaltySummary, now });
+    const facts = buildFacts({
+      authorName: ticket.author.user.name,
+      book: ticket.book,
+      royaltySummary,
+      supportEmail: SUPPORT_EMAIL,
+      now,
+    });
     const prompt = buildDraftPrompt({ ticket, facts, messages: ticket.messages, instructions });
     const result = await completeWithFallback(ticketId, prompt);
 

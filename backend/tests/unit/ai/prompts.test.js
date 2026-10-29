@@ -5,13 +5,13 @@ import {
   buildDraftPrompt,
   DRAFT_JSON_SCHEMA,
   draftOutputSchema,
-} from '../../../src/modules/ai_module/prompts/draft.prompt.v1.js';
+} from '../../../src/modules/ai_module/prompts/draft.prompt.v2.js';
 import { tagged, truncate } from '../../../src/modules/ai_module/prompts/prompt_text.js';
 import {
   buildTriagePrompt,
   TRIAGE_JSON_SCHEMA,
   triageOutputSchema,
-} from '../../../src/modules/ai_module/prompts/triage.prompt.v1.js';
+} from '../../../src/modules/ai_module/prompts/triage.prompt.v2.js';
 
 const royaltySummary = {
   totals: { pending: { amountMinor: 254600, currency: 'INR' } },
@@ -139,9 +139,16 @@ describe('draft prompt', () => {
   it('includes the verified facts and the matching guidance', () => {
     const content = buildDraftPrompt({ ticket: royaltyTicket(), facts }).messages[0].content;
 
-    expect(content).toContain('"nextPayoutDeadline": "2026-11-14"');
+    expect(content).toContain('"nextPayoutDeadline": "14 Nov 2026"');
     expect(content).toContain('"royaltyPending": "₹2,546"');
     expect(content).toContain('45-day payout window');
+  });
+
+  it('asks for details on the ticket and keeps email for defect photos', () => {
+    const { system } = buildDraftPrompt({ ticket: royaltyTicket(), facts });
+
+    expect(system).toContain('ask them to reply on this ticket');
+    expect(system).toContain('email the photos to facts.support.email');
   });
 
   it('keeps only the last four messages, each shortened', () => {

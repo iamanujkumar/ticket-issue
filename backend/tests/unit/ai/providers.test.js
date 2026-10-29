@@ -109,6 +109,20 @@ describe('groq provider', () => {
 
     await expect(provider.complete(request)).rejects.toBeInstanceOf(AiInvalidOutputError);
   });
+
+  it('treats a rejected structured answer as invalid output, not a provider failure', async () => {
+    const rejected = (failedGeneration) =>
+      jsonResponse(400, { error: { code: 'json_validate_failed', message: 'Failed to validate JSON', failed_generation: failedGeneration } });
+
+    const empty = await groqWith(rejected('')).provider.complete(request).catch((caught) => caught);
+    const wrongShape = await groqWith(rejected('{"category":"X"}')).provider.complete(request).catch((caught) => caught);
+
+    expect(empty).toBeInstanceOf(AiInvalidOutputError);
+    expect(empty.message).toContain('token budget');
+    expect(empty.json).toBeNull();
+    expect(wrongShape).toBeInstanceOf(AiInvalidOutputError);
+    expect(wrongShape.json).toEqual({ category: 'X' });
+  });
 });
 
 describe('circuit breaker', () => {
@@ -186,6 +200,18 @@ describe('resilient provider', () => {
     expect(result.data.confidence).toBe(0.8);
     expect(calls).toHaveLength(2);
     expect(calls[1].messages.at(-1).content).toContain('did not match the required format');
+    expect(logInvocation.mock.calls.map(([row]) => row.outcome)).toEqual(['INVALID_OUTPUT', 'SUCCESS']);
+  });
+
+  it('repairs once after the provider rejects the answer, sending the rejected JSON back', async () => {
+    const rejected = new AiInvalidOutputError('The AI answer did not match the JSON schema', { json: { category: 'X' } });
+    const { provider, calls } = sequenceProvider([rejected, { category: 'ROYALTY_PAYMENTS', confidence: 0.8 }]);
+    const logInvocation = vi.fn();
+
+    const result = await withResilience(provider, { logInvocation }).complete(request);
+
+    expect(result.data.category).toBe('ROYALTY_PAYMENTS');
+    expect(calls[1].messages.at(-2)).toEqual({ role: 'assistant', content: '{"category":"X"}' });
     expect(logInvocation.mock.calls.map(([row]) => row.outcome)).toEqual(['INVALID_OUTPUT', 'SUCCESS']);
   });
 

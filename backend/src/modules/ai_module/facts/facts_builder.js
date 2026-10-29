@@ -52,9 +52,14 @@ const STAGE_LABELS = {
 const STAGE_ORDER = Object.keys(STAGE_LABELS);
 
 const RUPEE_FORMAT = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+const DATE_FORMAT = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 export function formatRupees(amountMinor) {
   return amountMinor === null || amountMinor === undefined ? null : `₹${RUPEE_FORMAT.format(amountMinor / 100)}`;
+}
+
+export function formatDate(isoDate) {
+  return isoDate ? DATE_FORMAT.format(new Date(`${isoDate}T00:00:00Z`)) : null;
 }
 
 function firstNameOf(fullName) {
@@ -81,14 +86,14 @@ function bookFacts(book) {
     title: book.title,
     status: isInProduction(book) ? `In production — ${STAGE_LABELS[book.productionStage]}` : 'Published & Live',
     isbn: book.isbn,
-    publicationDate: toIsoDate(book.publicationDate),
+    publicationDate: formatDate(toIsoDate(book.publicationDate)),
     mrp: formatRupees(book.mrpMinor),
     copiesSold: book.copiesSold,
     royaltyPerCopy: formatRupees(book.royaltyPerCopyMinor),
     royaltyEarned: formatRupees(book.royaltyEarnedMinor),
     royaltyPaid: formatRupees(book.royaltyPaidMinor),
     royaltyPending: formatRupees(book.royaltyPendingMinor),
-    lastPayoutDate: toIsoDate(book.lastPayoutDate),
+    lastPayoutDate: formatDate(toIsoDate(book.lastPayoutDate)),
     platforms: (book.platforms ?? []).map(({ platform }) => PLATFORM_LABELS[platform]),
     printPartner: book.printPartner ? PRINT_PARTNER_LABELS[book.printPartner] : null,
   };
@@ -112,9 +117,9 @@ function royaltyFacts(book, royaltySummary, now) {
     authorPendingTotal: formatRupees(royaltySummary.totals.pending.amountMinor),
     minimumPayoutThreshold: formatRupees(royaltySummary.payout.threshold.amountMinor),
     meetsThreshold: !royaltySummary.payout.isBelowThreshold,
-    nextPayoutDeadline: royaltySummary.payout.nextPayout.paidBy,
-    nextPayoutCovers: `sales up to ${quarterEnd(upcomingPayoutQuarter(now))}`,
-    lastPayoutDate: royaltySummary.lastPayoutDate,
+    nextPayoutDeadline: formatDate(royaltySummary.payout.nextPayout.paidBy),
+    nextPayoutCovers: `sales up to ${formatDate(quarterEnd(upcomingPayoutQuarter(now)))}`,
+    lastPayoutDate: formatDate(royaltySummary.lastPayoutDate),
     payoutNeedsVerification: isPossiblyDelayed(book, royaltySummary, now),
   };
 }
@@ -130,14 +135,15 @@ function flagsFor(book, royalty, royaltySummary) {
   return flags;
 }
 
-export function buildFacts({ authorName, book, royaltySummary, now = new Date() }) {
+export function buildFacts({ authorName, book, royaltySummary, supportEmail = null, now = new Date() }) {
   const royalty = royaltyFacts(book, royaltySummary, now);
 
   return {
-    today: toBusinessDate(now),
+    today: formatDate(toBusinessDate(now)),
     author: { firstName: firstNameOf(authorName) },
     book: bookFacts(book),
     royalty,
+    ...(supportEmail && { support: { email: supportEmail } }),
     flags: flagsFor(book, royalty, royaltySummary),
   };
 }

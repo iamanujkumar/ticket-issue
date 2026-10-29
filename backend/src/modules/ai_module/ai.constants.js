@@ -10,8 +10,8 @@ export const TIMEOUTS_MS = Object.freeze({
 });
 
 export const MAX_OUTPUT_TOKENS = Object.freeze({
-  TRIAGE: 300,
-  DRAFT: 900,
+  TRIAGE: 600,
+  DRAFT: 2500,
 });
 
 export const REASONING_EFFORT = Object.freeze({
@@ -23,6 +23,8 @@ export const TEMPERATURE = Object.freeze({
   TRIAGE: 0,
   DRAFT: 0.4,
 });
+
+export const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || null;
 
 export const LOW_CONFIDENCE = 0.6;
 

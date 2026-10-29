@@ -97,7 +97,7 @@ export function withResilience(provider, { logInvocation, breaker = createCircui
         first = await validated(request, request.messages);
       } catch (error) {
         if (!(error instanceof AiInvalidOutputError)) throw error;
-        first = { ok: false, json: null, problem: error.message };
+        first = { ok: false, json: error.json, problem: error.message };
       }
       if (first.ok) return first;
 

@@ -14,7 +14,7 @@ import {
   TRIAGE_JSON_SCHEMA,
   TRIAGE_PROMPT_VERSION,
   triageOutputSchema,
-} from '../prompts/triage.prompt.v1.js';
+} from '../prompts/triage.prompt.v2.js';
 import { getAiProvider } from '../providers/index.js';
 
 export async function triageTicket(ticketId) {

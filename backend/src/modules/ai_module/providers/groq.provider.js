@@ -3,18 +3,34 @@ import { AiProviderName } from '../ai.enums.js';
 
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const PROVIDER_MESSAGE_MAX_LENGTH = 200;
+const JSON_VALIDATE_FAILED = 'json_validate_failed';
 
 function retryAfterSeconds(response) {
   const value = Number(response.headers.get('retry-after'));
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-async function providerMessage(response, apiKey) {
+async function errorOf(response) {
   try {
     const body = await response.json();
-    return String(body?.error?.message ?? '').replaceAll(apiKey, '[redacted]').slice(0, PROVIDER_MESSAGE_MAX_LENGTH);
+    return body?.error ?? {};
   } catch {
-    return '';
+    return {};
+  }
+}
+
+function redacted(message, apiKey) {
+  return String(message ?? '').replaceAll(apiKey, '[redacted]').slice(0, PROVIDER_MESSAGE_MAX_LENGTH);
+}
+
+function invalidGeneration(failedGeneration) {
+  if (!failedGeneration) {
+    return new AiInvalidOutputError('The model used its whole token budget before writing an answer');
+  }
+  try {
+    return new AiInvalidOutputError('The AI answer did not match the JSON schema', { json: JSON.parse(failedGeneration) });
+  } catch {
+    return new AiInvalidOutputError('The AI answer was not valid JSON');
   }
 }
 
@@ -79,7 +95,11 @@ export function createGroqProvider({ apiKey, fetchImpl = fetch }) {
         throw new AiRateLimitedError(retryAfterSeconds(response));
       }
       if (!response.ok) {
-        const message = await providerMessage(response, apiKey);
+        const error = await errorOf(response);
+        if (error.code === JSON_VALIDATE_FAILED) {
+          throw invalidGeneration(error.failed_generation);
+        }
+        const message = redacted(error.message, apiKey);
         throw new AiProviderError(`AI provider returned ${response.status}${message ? `: ${message}` : ''}`, {
           retryable: response.status >= 500,
         });

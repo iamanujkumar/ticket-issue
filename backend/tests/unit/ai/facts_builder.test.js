@@ -70,11 +70,11 @@ describe('buildFacts', () => {
   it('formats book money and labels in code (Ananya, BK005)', () => {
     const facts = buildFacts({ authorName: 'Ananya Reddy', book: ananyaBook, royaltySummary: summary({ pendingMinor: 254600 }), now: NOW });
 
-    expect(facts.today).toBe('2026-10-29');
+    expect(facts.today).toBe('29 Oct 2026');
     expect(facts.book).toMatchObject({
       title: 'Between Two Temples',
       status: 'Published & Live',
-      publicationDate: '2024-07-05',
+      publicationDate: '5 Jul 2024',
       mrp: '₹425',
       royaltyPerCopy: '₹38',
       royaltyEarned: '₹2,546',
@@ -88,9 +88,30 @@ describe('buildFacts', () => {
       authorPendingTotal: '₹2,546',
       minimumPayoutThreshold: '₹1,000',
       meetsThreshold: true,
-      nextPayoutDeadline: '2026-11-14',
-      nextPayoutCovers: 'sales up to 2026-09-30',
+      nextPayoutDeadline: '14 Nov 2026',
+      nextPayoutCovers: 'sales up to 30 Sept 2026',
     });
+  });
+
+  it('writes payout dates the way an author reads them', () => {
+    const paidBook = publishedBook({ royaltyEarnedMinor: 793800, royaltyPaidMinor: 793800, lastPayoutDate: date('2025-12-01') });
+
+    const facts = buildFacts({
+      authorName: 'Priya Sharma',
+      book: paidBook,
+      royaltySummary: summary({ pendingMinor: 0, lastPayoutDate: '2025-12-01' }),
+      now: NOW,
+    });
+
+    expect(facts.book.lastPayoutDate).toBe('1 Dec 2025');
+    expect(facts.royalty.lastPayoutDate).toBe('1 Dec 2025');
+  });
+
+  it('adds the support email only when it is configured', () => {
+    const base = { authorName: 'Ananya Reddy', book: ananyaBook, royaltySummary: summary({ pendingMinor: 254600 }), now: NOW };
+
+    expect(buildFacts({ ...base, supportEmail: 'support@bookleaf.test' }).support).toEqual({ email: 'support@bookleaf.test' });
+    expect(buildFacts(base)).not.toHaveProperty('support');
   });
 
   it('flags a possible payout delay for a book that was never paid (Ananya)', () => {

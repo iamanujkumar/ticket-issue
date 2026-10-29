@@ -6,7 +6,7 @@ import {
   TRIAGE_JSON_SCHEMA,
   TRIAGE_PROMPT_VERSION,
   triageOutputSchema,
-} from '../src/modules/ai_module/prompts/triage.prompt.v1.js';
+} from '../src/modules/ai_module/prompts/triage.prompt.v2.js';
 import { createGroqProvider } from '../src/modules/ai_module/providers/groq.provider.js';
 import { withResilience } from '../src/modules/ai_module/providers/resilient.provider.js';
 import { classifyByRules } from '../src/modules/ticket_module/ticket.rules_triage.js';
@@ -65,17 +65,18 @@ async function main() {
       timeoutMs: TIMEOUTS_MS.TRIAGE,
     });
 
+    const categories = testCase.categories ?? [testCase.category];
     const result = {
-      aiCategory: ai.category === testCase.category,
+      aiCategory: categories.includes(ai.category),
       aiPriority: testCase.priorities.includes(ai.priority),
-      rulesCategory: rules.category === testCase.category,
+      rulesCategory: categories.includes(rules.category),
       rulesPriority: testCase.priorities.includes(rules.priority),
     };
     for (const key of Object.keys(score)) score[key] += result[key] ? 1 : 0;
 
     const mark = (ok) => (ok ? 'ok ' : 'XX ');
     console.log(
-      `${mark(result.aiCategory && result.aiPriority)}${testCase.source.padEnd(32)} AI ${ai.category}/${ai.priority} (${ai.confidence}) | rules ${rules.category}/${rules.priority} | expected ${testCase.category}/${testCase.priorities.join('|')}`,
+      `${mark(result.aiCategory && result.aiPriority)}${testCase.source.padEnd(32)} AI ${ai.category}/${ai.priority} (${ai.confidence}) | rules ${rules.category}/${rules.priority} | expected ${categories.join('|')}/${testCase.priorities.join('|')}`,
     );
   }
 

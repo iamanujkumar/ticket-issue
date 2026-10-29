@@ -47,8 +47,9 @@ export class AiCircuitOpenError extends AiError {
 }
 
 export class AiInvalidOutputError extends AiError {
-  constructor(message = 'The AI answer did not match the expected format') {
+  constructor(message = 'The AI answer did not match the expected format', { json = null } = {}) {
     super(message, { outcome: AiOutcome.INVALID_OUTPUT, retryable: false });
+    this.json = json;
   }
 }
 
