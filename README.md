@@ -6,7 +6,7 @@ A web app with two portals for BookLeaf Publishing:
 
 | | |
 |---|---|
-| **Live app** | https://YOUR-APP.vercel.app |
+| **Live app** | https://ticket-issue-lyart.vercel.app |
 | **API docs (Swagger UI)** | https://ticket-issue-9fx8.onrender.com/api/docs |
 | **OpenAPI spec** | https://ticket-issue-9fx8.onrender.com/api/v1/openapi.json |
 
